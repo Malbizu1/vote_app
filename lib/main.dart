@@ -10,10 +10,8 @@ import 'core/network/dio_client.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1) Cargar variables de entorno (.env)
   await dotenv.load(fileName: ".env");
 
-  // 2) Inicializar Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -29,12 +27,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: "Vote App",
+      theme: ThemeData(
+        primarySwatch: Colors.deepPurple,
+      ),
       home: const AuthGate(),
     );
   }
 }
 
-/// Controla si mostrar Login o Home
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -44,7 +44,9 @@ class AuthGate extends StatelessWidget {
       stream: AuthService().userChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         if (snapshot.hasData) {
           return const HomeScreen();
@@ -55,14 +57,13 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-/// Pantalla de Login
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Prueba Login con Google")),
+      appBar: AppBar(title: const Text("Login con Google")),
       body: Center(
         child: ElevatedButton.icon(
           onPressed: () async {
@@ -82,7 +83,6 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
-/// Pantalla Home
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -103,23 +103,40 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () async {
-            try {
-              final response = await client.dio.get("/ping");
-              // ignore: use_build_context_synchronously
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("API dice: ${response.data}")),
-              );
-            } catch (e) {
-              // ignore: use_build_context_synchronously
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Error API: $e")),
-              );
-            }
-          },
-          child: const Text("Probar API"),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage:
+              user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              user?.email ?? '',
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final response = await client.dio.get('/v1/polls/');
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Encuestas: ${response.data.toString()}")),
+                  );
+                } catch (e) {
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error API: $e")),
+                  );
+                }
+              },
+              child: const Text("Probar API oficial"),
+            ),
+          ],
         ),
       ),
     );
