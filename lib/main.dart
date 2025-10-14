@@ -3,15 +3,20 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'firebase_options.dart'; // generado por flutterfire configure
-import 'auth_service.dart';
+import 'core/firebase/firebase_options.dart';
+import 'core/auth/auth_service.dart';
 import 'core/network/dio_client.dart';
+
+import 'presentation/screens/login_screen.dart';
+import 'presentation/screens/polls_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Cargar variables de entorno (.env)
   await dotenv.load(fileName: ".env");
 
+  // Inicializar Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -28,7 +33,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: "Vote App",
       theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
+        colorSchemeSeed: Colors.deepPurple,
+        useMaterial3: true,
       ),
       home: const AuthGate(),
     );
@@ -57,32 +63,6 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Login con Google")),
-      body: Center(
-        child: ElevatedButton.icon(
-          onPressed: () async {
-            final user = await AuthService().signInWithGoogle();
-            if (user == null) {
-              // ignore: use_build_context_synchronously
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Login cancelado o fallido")),
-              );
-            }
-          },
-          icon: const Icon(Icons.login),
-          label: const Text("Iniciar con Google"),
-        ),
-      ),
-    );
-  }
-}
-
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -97,6 +77,7 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
             onPressed: () async {
               await AuthService().signOut();
             },
@@ -104,7 +85,7 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -113,19 +94,25 @@ class HomeScreen extends StatelessWidget {
               backgroundImage:
               user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               user?.email ?? '',
               style: const TextStyle(fontSize: 16, color: Colors.black54),
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
+
+            //Botón para consumir el endpoint real
+            ElevatedButton.icon(
+              icon: const Icon(Icons.poll),
+              label: const Text("Probar API oficial"),
               onPressed: () async {
                 try {
                   final response = await client.dio.get('/v1/polls/');
                   // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Encuestas: ${response.data.toString()}")),
+                    SnackBar(
+                      content: Text("Encuestas recibidas: ${response.data.toString()}"),
+                    ),
                   );
                 } catch (e) {
                   // ignore: use_build_context_synchronously
@@ -134,7 +121,20 @@ class HomeScreen extends StatelessWidget {
                   );
                 }
               },
-              child: const Text("Probar API oficial"),
+            ),
+
+            const SizedBox(height: 16),
+
+            //Navegar a la pantalla de encuestas
+            ElevatedButton.icon(
+              icon: const Icon(Icons.list_alt),
+              label: const Text("Ver encuestas"),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PollsScreen()),
+                );
+              },
             ),
           ],
         ),
