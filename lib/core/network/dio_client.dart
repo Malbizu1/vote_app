@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-/// Cliente HTTP centralizado con manejo de errores, tiempo de espera e interceptores.
 class DioClient {
   late Dio dio;
 
@@ -18,7 +18,13 @@ class DioClient {
     );
 
     dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
+      onRequest: (options, handler) async {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final token = await user.getIdToken();
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+
         print('[REQUEST] ${options.method} ${options.uri}');
         return handler.next(options);
       },
@@ -43,37 +49,21 @@ class DioClient {
   }
 
   String _mapErrorToMessage(DioException e) {
-    if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return 'Tiempo de espera agotado. Intenta nuevamente.';
-    }
-
-    if (e.type == DioExceptionType.connectionError) {
-      return 'Sin conexión a internet. Verifica tu red.';
-    }
-
     final statusCode = e.response?.statusCode;
     if (statusCode != null) {
       switch (statusCode) {
         case 400:
-          return 'Solicitud incorrecta. Revisa los parámetros enviados.';
+          return 'Solicitud incorrecta.';
         case 401:
-          return 'No autorizado. Debes iniciar sesión nuevamente.';
+          return 'No autorizado. Debes iniciar sesión.';
         case 403:
-          return 'Acceso denegado. No tienes permisos para esta acción.';
+          return 'Acceso denegado.';
         case 404:
-          return 'No se encontró el recurso solicitado.';
-        case 408:
-          return 'Tiempo de espera agotado por el servidor.';
+          return 'Recurso no encontrado.';
         case 500:
-          return 'Error interno del servidor. Intenta más tarde.';
-        case 503:
-          return 'Servicio no disponible. El servidor no responde.';
-        default:
-          return 'Error inesperado (${statusCode}). Intenta más tarde.';
+          return 'Error interno del servidor.';
       }
     }
-
-    return 'Error desconocido. Verifica tu conexión o inténtalo nuevamente.';
+    return 'Error de conexión o inesperado.';
   }
 }

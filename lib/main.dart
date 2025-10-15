@@ -107,7 +107,7 @@ class HomeScreen extends StatelessWidget {
               label: const Text("Probar API oficial"),
               onPressed: () async {
                 try {
-                  final response = await client.dio.get('/v1/polls/');
+                  final response = await client.dio.get('/polls/');
                   // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
