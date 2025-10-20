@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:vote_app/core/network/dio_client.dart';
 import 'package:vote_app/data/models/poll_model.dart';
 import 'package:vote_app/data/repositories/poll_repository.dart';
+import 'package:vote_app/presentation/widgets/error_display.dart';
 
 class PollsScreen extends StatefulWidget {
   const PollsScreen({super.key});
@@ -10,106 +13,63 @@ class PollsScreen extends StatefulWidget {
 }
 
 class _PollsScreenState extends State<PollsScreen> {
-  final PollRepository _repository = PollRepository();
-  bool _loading = true;
-  String? _error;
-  List<PollModel> _polls = [];
+  late final PollRepository repo;
+  late Future<List<PollModel>> future;
 
   @override
   void initState() {
     super.initState();
-    _fetchPolls();
+    repo = PollRepository(DioClient());
+    future = repo.listPolls();
   }
 
-  Future<void> _fetchPolls() async {
+  void _retry() {
     setState(() {
-      _loading = true;
-      _error = null;
+      future = repo.listPolls();
     });
-
-    try {
-      final data = await _repository.fetchPolls();
-      setState(() => _polls = data);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Encuestas disponibles"),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchPolls),
-        ],
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return _ErrorDisplay(message: _error!, onRetry: _fetchPolls);
-    }
-
-    if (_polls.isEmpty) {
-      return const Center(
-        child: Text("No hay encuestas disponibles"),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _polls.length,
-      itemBuilder: (context, index) {
-        final poll = _polls[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: ListTile(
-            title: Text(poll.title),
-            subtitle: Text(poll.description ?? "Sin descripción"),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Seleccionaste ${poll.pollToken}")),
+      appBar: AppBar(title: const Text('Encuestas disponibles')),
+      body: FutureBuilder<List<PollModel>>(
+        future: future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            final err = snap.error;
+            return ErrorDisplay(
+              message: 'Error al obtener encuestas: $err',
+              onRetry: _retry,
+            );
+          }
+          final items = snap.data ?? const [];
+          if (items.isEmpty) {
+            return ErrorDisplay(
+              message: 'No hay encuestas disponibles',
+              onRetry: _retry,
+              isWarning: true,
+            );
+          }
+          return ListView.separated(
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, i) {
+              final p = items[i];
+              return ListTile(
+                title: Text(p.title ?? 'Encuesta'),
+                subtitle: Text(p.description ?? ''),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: navegar a detalle
+                },
               );
             },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ErrorDisplay extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorDisplay({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 60),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Text(message, textAlign: TextAlign.center),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.refresh),
-            label: const Text("Reintentar"),
-            onPressed: onRetry,
-          ),
-        ],
+          );
+        },
       ),
     );
   }

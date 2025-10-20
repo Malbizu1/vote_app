@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vote_app/core/auth/auth_service.dart';
+import 'package:vote_app/core/network/dio_client.dart';
 import 'package:vote_app/presentation/screens/polls_screen.dart';
+import 'package:vote_app/presentation/screens/profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -12,10 +14,7 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Bienvenido ${user?.displayName?.split(' ').first ?? 'Usuario'}",
-          style: const TextStyle(fontSize: 18),
-        ),
+        title: const Text("Vote App 🗳️"),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -24,18 +23,18 @@ class HomeScreen extends StatelessWidget {
               await AuthService().signOut();
               // ignore: use_build_context_synchronously
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Sesión cerrada")),
+                const SnackBar(content: Text("Sesión cerrada correctamente")),
               );
             },
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Información del usuario
             CircleAvatar(
               radius: 45,
               backgroundImage: user?.photoURL != null
@@ -45,24 +44,51 @@ class HomeScreen extends StatelessWidget {
                   ? const Icon(Icons.person, size: 45)
                   : null,
             ),
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 16),
             Text(
-              user?.displayName ?? "Usuario",
+              user?.displayName ?? 'Usuario',
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             Text(
               user?.email ?? '',
-              style: const TextStyle(color: Colors.black54),
+              style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
 
+            // Botón para probar conexión a la API
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              icon: const Icon(Icons.cloud),
+              label: const Text("Probar conexión API"),
+              onPressed: () async {
+                final client = DioClient();
+                try {
+                  final response = await client.dio.get('/v1/polls/');
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("✅ API OK (${response.statusCode})")),
+                  );
+                } catch (e) {
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("❌ Error API: $e")),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Ir a encuestas
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
                 minimumSize: const Size(double.infinity, 50),
               ),
               icon: const Icon(Icons.how_to_vote),
-              label: const Text("Ver encuestas disponibles"),
+              label: const Text("Ver encuestas"),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -70,20 +96,20 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
+            // Ir al perfil
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueGrey,
                 minimumSize: const Size(double.infinity, 50),
               ),
-              icon: const Icon(Icons.history),
-              label: const Text("Historial de votaciones"),
+              icon: const Icon(Icons.person),
+              label: const Text("Ver perfil"),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                    Text("Esta sección estará disponible próximamente."),
-                  ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 );
               },
             ),

@@ -1,37 +1,44 @@
+import 'package:dio/dio.dart';
 import 'package:vote_app/core/network/dio_client.dart';
 import 'package:vote_app/data/models/poll_model.dart';
 
 class PollRepository {
-  final DioClient _client = DioClient();
+  final DioClient _client;
+  PollRepository(this._client);
 
-  Future<List<PollModel>> fetchPolls() async {
-    try {
-      final response = await _client.dio.get('/v1/polls/');
-
-      if (response.statusCode == 200 && response.data is List) {
-        return (response.data as List)
-            .map((e) => PollModel.fromJson(e))
-            .toList();
-      } else {
-        throw Exception(
-            'Error inesperado: código ${response.statusCode} - ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Error al obtener encuestas: $e');
+  Future<List<PollModel>> listPolls() async {
+    final res = await _client.dio.get('/v1/polls/'); // ¡con slash final!
+    final data = res.data;
+    if (data is List) {
+      return data.map((e) => PollModel.fromJson(e)).toList();
     }
+    // Si la API devuelve paginado tipo {content:[], ...}
+    if (data is Map && data['content'] is List) {
+      return (data['content'] as List)
+          .map((e) => PollModel.fromJson(e))
+          .toList();
+    }
+    return [];
   }
 
-  Future<PollModel> fetchPollByToken(String token) async {
-    try {
-      final response = await _client.dio.get('/v1/polls/$token');
+  Future<PollModel> getByToken(String pollToken) async {
+    final res = await _client.dio.get('/v1/polls/$pollToken');
+    return PollModel.fromJson(res.data);
+  }
 
-      if (response.statusCode == 200 && response.data is Map) {
-        return PollModel.fromJson(response.data);
-      } else {
-        throw Exception('No se pudo obtener la encuesta $token');
-      }
-    } catch (e) {
-      throw Exception('Error al obtener encuesta: $e');
-    }
+  Future<void> vote({
+    required String pollToken,
+    required String optionId,
+  }) async {
+    await _client.dio.post('/v1/vote/election', data: {
+      'pollToken': pollToken,
+      'optionId': optionId,
+    });
+  }
+
+  Future<Map<String, dynamic>> results(String pollToken) async {
+    final res = await _client.dio.get('/v1/vote/$pollToken/results');
+    return Map<String, dynamic>.from(res.data);
   }
 }
+
